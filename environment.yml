@@ -1,0 +1,13 @@
+name: final-project
+channels:
+  - pytorch
+  - defaults
+  - conda-forge
+dependencies:
+  - pytorch
+  - torchvision
+  - pytorch-lightning
+  - cudatoolkit
+  - pillow
+  - tensorboard
+  - pyyaml
