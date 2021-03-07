@@ -6,8 +6,10 @@ channels:
 dependencies:
   - pytorch
   - torchvision
-  - pytorch-lightning
+  - pytorch-lightning=1.1.8
   - cudatoolkit
   - pillow
   - tensorboard
   - pyyaml
+  - pip:
+      - pytorch-lightning-bolts
