@@ -43,7 +43,7 @@ class SSLCOVIDxCT(pl.LightningDataModule):
                  batch_size: int = 32,
                  shuffle: bool = False,
                  pin_memory: bool = False,
-                 drop_last: bool = False,
+                 drop_last: bool = True,
                  *args: Any,
                  **kwargs: Any):
         super().__init__(*args, **kwargs)
@@ -53,16 +53,16 @@ class SSLCOVIDxCT(pl.LightningDataModule):
         self.shuffle = shuffle
         self.pin_memory = pin_memory
         self.drop_last = drop_last
-        self.train_transform = None
-        self.val_transform = None
-        self.test_transform = None
+        self.train_transforms = None
+        self.val_transforms = None
+        self.test_transforms = None
 
     @property
     def num_classes(self) -> int:
         return 3
 
     def train_dataloader(self, *args, **kwargs) -> DataLoader:
-        transforms = self._default_transform() if self.train_transform is None else self.train_transform
+        transforms = self._default_transforms() if self.train_transforms is None else self.train_transforms
         dataset = UnlabeledCOVIDxCT(
             self.data_dir,
             split="train",
@@ -78,7 +78,7 @@ class SSLCOVIDxCT(pl.LightningDataModule):
         )
 
     def val_dataloader(self, *args, **kwargs) -> DataLoader:
-        transforms = self._default_transform() if self.val_transform is None else self.val_transform
+        transforms = self._default_transforms() if self.val_transforms is None else self.val_transforms
         dataset = UnlabeledCOVIDxCT(
             self.data_dir,
             split="val",
@@ -94,7 +94,7 @@ class SSLCOVIDxCT(pl.LightningDataModule):
         )
 
     def test_dataloader(self, *args, **kwargs) -> DataLoader:
-        transforms = self._default_transform() if self.test_transform is None else self.test_transform
+        transforms = self._default_transforms() if self.test_transforms is None else self.test_transforms
         dataset = UnlabeledCOVIDxCT(
             self.data_dir,
             split="val",
@@ -109,7 +109,7 @@ class SSLCOVIDxCT(pl.LightningDataModule):
             pin_memory=self.pin_memory,
         )
 
-    def _default_transform(self) -> Callable:
+    def _default_transforms(self) -> Callable:
         return T.Compose([
             T.ToTensor(),
             T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]
