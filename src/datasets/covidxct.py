@@ -61,15 +61,23 @@ class SSLCOVIDxCT(pl.LightningDataModule):
     def num_classes(self) -> int:
         return 3
 
+    def prepare_data(self):
+        pass
+
+    def setup(self, stage: Optional[str] = None):
+        if stage == "fit" or stage is None:
+            train_transforms = self._default_transforms() if self.train_transforms is None else self.train_transforms
+            val_transforms = self._default_transforms() if self.val_transforms is None else self.val_transforms
+            self.covidxct_train = UnlabeledCOVIDxCT(self.data_dir, split="train", transform=train_transforms)
+            self.covidxct_val = UnlabeledCOVIDxCT(self.data_dir, split="val", transform=val_transforms)
+
+        if stage == "test":
+            test_transforms = self._default_transforms() if self.test_transforms is None else self.test_transforms
+            self.covidxct_test = UnlabeledCOVIDxCT(self.data_dir, split="test", transform=test_transforms)
+
     def train_dataloader(self, *args, **kwargs) -> DataLoader:
-        transforms = self._default_transforms() if self.train_transforms is None else self.train_transforms
-        dataset = UnlabeledCOVIDxCT(
-            self.data_dir,
-            split="train",
-            transform=transforms
-        )
         return DataLoader(
-            dataset,
+            self.covidxct_train,
             batch_size=self.batch_size,
             shuffle=self.shuffle,
             num_workers=self.num_workers,
@@ -78,14 +86,8 @@ class SSLCOVIDxCT(pl.LightningDataModule):
         )
 
     def val_dataloader(self, *args, **kwargs) -> DataLoader:
-        transforms = self._default_transforms() if self.val_transforms is None else self.val_transforms
-        dataset = UnlabeledCOVIDxCT(
-            self.data_dir,
-            split="val",
-            transform=transforms
-        )
         return DataLoader(
-            dataset,
+            self.covidxct_val,
             batch_size=self.batch_size,
             shuffle=self.shuffle,
             num_workers=self.num_workers,
@@ -94,14 +96,8 @@ class SSLCOVIDxCT(pl.LightningDataModule):
         )
 
     def test_dataloader(self, *args, **kwargs) -> DataLoader:
-        transforms = self._default_transforms() if self.test_transforms is None else self.test_transforms
-        dataset = UnlabeledCOVIDxCT(
-            self.data_dir,
-            split="val",
-            transform=transforms
-        )
         return DataLoader(
-            dataset,
+            self.covidxct_test,
             batch_size=self.batch_size,
             shuffle=self.shuffle,
             num_workers=self.num_workers,
