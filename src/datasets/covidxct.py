@@ -75,7 +75,7 @@ class SSLCOVIDxCT(pl.LightningDataModule):
             test_transforms = self._default_transforms() if self.test_transforms is None else self.test_transforms
             self.covidxct_test = UnlabeledCOVIDxCT(self.data_dir, split="test", transform=test_transforms)
 
-    def train_dataloader(self, *args, **kwargs) -> DataLoader:
+    def train_dataloader(self) -> DataLoader:
         return DataLoader(
             self.covidxct_train,
             batch_size=self.batch_size,
@@ -85,7 +85,7 @@ class SSLCOVIDxCT(pl.LightningDataModule):
             pin_memory=self.pin_memory,
         )
 
-    def val_dataloader(self, *args, **kwargs) -> DataLoader:
+    def val_dataloader(self) -> DataLoader:
         return DataLoader(
             self.covidxct_val,
             batch_size=self.batch_size,
@@ -95,7 +95,7 @@ class SSLCOVIDxCT(pl.LightningDataModule):
             pin_memory=self.pin_memory,
         )
 
-    def test_dataloader(self, *args, **kwargs) -> DataLoader:
+    def test_dataloader(self) -> DataLoader:
         return DataLoader(
             self.covidxct_test,
             batch_size=self.batch_size,
