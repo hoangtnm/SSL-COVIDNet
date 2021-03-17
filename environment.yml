@@ -6,10 +6,18 @@ channels:
 dependencies:
   - pytorch
   - torchvision
-  - pytorch-lightning=1.1.8
+  - pytorch-lightning=1.1
   - cudatoolkit
+  - pandas
   - pillow
   - tensorboard
   - pyyaml
+  - jupyterlab=3
+  - matplotlib
+  - streamlit
+  - scikit-learn
+  - rope
+  - flake8
+  - black
   - pip:
-      - pytorch-lightning-bolts
+      - lightning-bolts
