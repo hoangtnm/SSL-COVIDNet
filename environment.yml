@@ -19,5 +19,6 @@ dependencies:
   - rope
   - flake8
   - black
+  - kaggle
   - pip:
       - lightning-bolts
