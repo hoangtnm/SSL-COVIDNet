@@ -18,7 +18,7 @@ def main():
 
     model = MocoV2(**args.__dict__)
     trainer = pl.Trainer.from_argparse_args(args)
-    trainer.tune(model, datamodule=datamodule)
+    # trainer.tune(model, datamodule=datamodule)
     trainer.fit(model, datamodule=datamodule)
 
 
