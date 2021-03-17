@@ -22,3 +22,4 @@ dependencies:
   - kaggle
   - pip:
       - lightning-bolts
+      - opencv-python
