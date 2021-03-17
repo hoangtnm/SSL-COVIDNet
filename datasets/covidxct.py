@@ -26,9 +26,13 @@ class UnlabeledCOVIDxCT(Dataset):
         return len(self.df)
 
     def __getitem__(self, idx):
-        filepath = Path(self.root) / "2A_images" / self.df.loc[idx, "filename"]
-        label = self.df.loc[idx, "label"]
+        data = self.df.iloc[idx]
+        filepath = Path(self.root) / "2A_images" / data["filename"]
+        xmin, ymin, xmax, ymax = data["xmin"], data["ymin"], data["xmax"], data["ymax"]
+        label = data["class"]
+
         img = Image.open(filepath).convert("RGB")
+        img = img.crop((xmin, ymin, xmax, ymax))
         if self.transform:
             img = self.transform(img)
         if self.target_transform:
