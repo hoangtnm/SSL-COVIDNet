@@ -11,10 +11,10 @@ class BodyCrop(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, img, label, coords):
+    def forward(self, img, coords):
         xmin, ymin, xmax, ymax = coords
         img = F.crop(img, ymin, xmin, (ymax - ymin), (xmax - xmin))
-        return img, label
+        return img
 
 
 class Moco2TrainCovidxCT(nn.Module):
