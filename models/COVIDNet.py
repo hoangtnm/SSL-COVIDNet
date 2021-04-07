@@ -1,19 +1,21 @@
-import torch
-import torch.nn as nn
-import torch.optim as optim
+from typing import Any, Optional, List
+
 import pytorch_lightning as pl
+import torch.nn as nn
 import torch.nn.functional as F
-from pl_bolts.models.self_supervised import MocoV2
+import torch.optim as optim
 from pl_bolts.metrics import mean, precision_at_k
-from typing import Any, Optional
+from pl_bolts.models.self_supervised import Moco_v2
+from torch import Tensor
+from torchmetrics.functional import f1, auroc
 
 
 class MocoCOVIDNet(pl.LightningModule):
     def __init__(self,
-                 moco_extractor: MocoV2,
-                 num_classes: int = 3,
-                 batch_size: int = 32,
-                 lr: int = 1e-3):
+                 moco_extractor: Moco_v2,
+                 num_classes: Optional[int] = 3,
+                 batch_size: Optional[int] = 32,
+                 lr: Optional[float] = 1e-3):
         super().__init__()
         self.backbone = moco_extractor.encoder_q
         for param in self.backbone.parameters():
@@ -24,20 +26,29 @@ class MocoCOVIDNet(pl.LightningModule):
             nn.Dropout(0.2),
             nn.Linear(self.last_channel, num_classes)
         )
+        self.num_classes = num_classes
         self.batch_size = batch_size
         self.learning_rate = lr
 
-    def forward(self, x):
+    def forward(self, x: Tensor) -> Tensor:
         embedding = self.backbone(x)
         return self.classifier(embedding)
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx) -> Tensor:
         x, y = batch
         output = self(x)
         loss = F.cross_entropy(output, y.long())
         acc1, acc5 = precision_at_k(output, y, top_k=(1, 5))
+        f1_score = f1(output, y, num_classes=self.num_classes)
+        auroc_score = auroc(output, y)
 
-        log = {"train_loss": loss, "train_acc1": acc1, "train_acc5": acc5}
+        log = {
+            "train_loss": loss,
+            "train_acc1": acc1,
+            "train_acc5": acc5,
+            "train_f1": f1_score,
+            "train_auroc": auroc_score
+        }
         self.log_dict(log)
         return loss
 
@@ -47,13 +58,29 @@ class MocoCOVIDNet(pl.LightningModule):
         loss = F.cross_entropy(output, y.long())
 
         acc1, acc5 = precision_at_k(output, y, top_k=(1, 5))
-        return {"val_loss": loss, "val_acc1": acc1, "val_acc5": acc5}
+        f1_score = f1(output, y, num_classes=self.num_classes)
+        auroc_score = auroc(output, y)
+        return {
+            "val_loss": loss,
+            "val_acc1": acc1,
+            "val_acc5": acc5,
+            "val_f1": f1_score,
+            "val_auroc": auroc_score
+        }
 
-    def validation_epoch_end(self, outputs) -> None:
+    def validation_epoch_end(self, outputs: List[Any]) -> None:
         val_loss = mean(outputs, "val_loss")
         val_acc1 = mean(outputs, "val_acc1")
         val_acc5 = mean(outputs, "val_acc5")
-        log = {"val_loss": val_loss, "val_acc1": val_acc1, "val_acc5": val_acc5}
+        val_f1 = mean(outputs, "val_f1")
+        val_auroc = mean(outputs, "val_auroc")
+        log = {
+            "val_loss": val_loss,
+            "val_acc1": val_acc1,
+            "val_acc5": val_acc5,
+            "val_f1": val_f1,
+            "val_auroc": val_auroc
+        }
         self.log_dict(log)
 
     def configure_optimizers(self):
