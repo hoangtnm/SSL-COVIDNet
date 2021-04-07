@@ -1,1 +1,1 @@
-from .COVIDNet import MocoCOVIDNet
+from .COVIDNet import SSLCOVIDNet
