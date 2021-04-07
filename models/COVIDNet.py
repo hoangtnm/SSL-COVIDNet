@@ -10,7 +10,7 @@ from torch import Tensor
 from torchmetrics.functional import f1, auroc
 
 
-class MocoCOVIDNet(pl.LightningModule):
+class SSLCOVIDNet(pl.LightningModule):
     def __init__(self,
                  moco_extractor: Moco_v2,
                  num_classes: Optional[int] = 3,
