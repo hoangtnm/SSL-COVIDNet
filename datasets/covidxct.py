@@ -1,11 +1,17 @@
 from pathlib import Path
 from typing import Any, Callable, Optional
 
+import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torchvision.transforms as T
 from PIL import Image
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
+import nvidia.dali as dali
+from nvidia.dali import pipeline_def
+import nvidia.dali.fn as fn
+import nvidia.dali.types as types
+from nvidia.dali.plugin.pytorch import DALIClassificationIterator, LastBatchPolicy
 
 
 class UnlabeledCOVIDxCT(Dataset):
@@ -39,15 +45,22 @@ class UnlabeledCOVIDxCT(Dataset):
             label = self.target_transform(label)
         return img, label
 
+    @property
+    def sampling_weights(self):
+        class_counts = self.df["class"].value_counts()
+        weights = 1. / class_counts
+        return weights[self.df["class"]].values
+
 
 class SSLCOVIDxCT(pl.LightningDataModule):
     def __init__(self,
                  data_dir: str,
-                 num_workers: int = 8,
-                 batch_size: int = 32,
-                 shuffle: bool = False,
-                 pin_memory: bool = False,
-                 drop_last: bool = True,
+                 num_workers: Optional[int] = 8,
+                 batch_size: Optional[int] = 32,
+                 shuffle: Optional[bool] = False,
+                 random_sampling: Optional[bool] = False,
+                 pin_memory: Optional[bool] = False,
+                 drop_last: Optional[bool] = True,
                  *args: Any,
                  **kwargs: Any):
         super().__init__(*args, **kwargs)
@@ -55,6 +68,7 @@ class SSLCOVIDxCT(pl.LightningDataModule):
         self.num_workers = num_workers
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.random_sampling = random_sampling
         self.pin_memory = pin_memory
         self.drop_last = drop_last
         self.train_transforms = None
@@ -84,6 +98,8 @@ class SSLCOVIDxCT(pl.LightningDataModule):
             self.covidxct_train,
             batch_size=self.batch_size,
             shuffle=self.shuffle,
+            sampler=WeightedRandomSampler(self.covidxct_train.sampling_weights,
+                                          num_samples=(len(self.covidxct_train))) if self.random_sampling else None,
             num_workers=self.num_workers,
             drop_last=self.drop_last,
             pin_memory=self.pin_memory,
@@ -114,3 +130,29 @@ class SSLCOVIDxCT(pl.LightningDataModule):
             T.ToTensor(),
             T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])]
         )
+
+
+class UnlabeledCOVIDxCT_DaliIterator:
+    def __init__(self, root: str, batch_size: int, split: str = "train", **kwargs):
+        assert split in ["train", "val", "test"]
+        self.root = Path(root).expanduser()
+        self.batch_size = batch_size
+        self.df = pd.read_csv(self.root / f"{split}_COVIDx_CT-2A.txt", delimiter=" ",
+                              names=["filename", "class", "xmin", "ymin", "xmax", "ymax"])
+        self.df = self.df.sample(frac=1, random_state=1000).reset_index(drop=True)
+
+    def __iter__(self):
+        self.i = 0
+        self.n = len(self.df)
+        return self
+
+    def __neg__(self):
+        batch = []
+        label = []
+        for _ in range(self.batch_size):
+            data = self.df.iloc[self.i]
+            filepath = Path(self.root) / "2A_images" / data["filename"]
+            xmin, ymin, xmax, ymax = data["xmin"], data["ymin"], data["xmax"], data["ymax"]
+            label = data["class"]
+
+        return batch, label
