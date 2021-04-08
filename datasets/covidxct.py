@@ -47,9 +47,10 @@ class UnlabeledCOVIDxCT(Dataset):
 
     @property
     def sampling_weights(self):
-        class_counts = self.df["class"].value_counts()
-        weights = 1. / class_counts
-        return weights[self.df["class"]].values
+        labels = self.df.loc[:, "class"]
+        counts = labels.value_counts()
+        weights = 1. / counts
+        return weights[labels].to_numpy()
 
 
 class SSLCOVIDxCT(pl.LightningDataModule):
@@ -156,3 +157,8 @@ class UnlabeledCOVIDxCT_DaliIterator:
             label = data["class"]
 
         return batch, label
+
+
+@pipeline_def
+def covidxct_pipe():
+    pass
