@@ -15,7 +15,7 @@ class SSLCOVIDNet(pl.LightningModule):
                  moco_extractor: Moco_v2,
                  num_classes: Optional[int] = 3,
                  batch_size: Optional[int] = 32,
-                 lr: Optional[float] = 1e-3):
+                 lr: Optional[float] = 1e-4):
         super().__init__()
         self.backbone = moco_extractor.encoder_q
         for param in self.backbone.parameters():
@@ -35,37 +35,35 @@ class SSLCOVIDNet(pl.LightningModule):
         return self.classifier(embedding)
 
     def training_step(self, batch, batch_idx) -> Tensor:
-        x, y = batch
-        output = self(x)
+        (img_q, img_k), y = batch
+        output = self(img_q)
         loss = F.cross_entropy(output, y.long())
-        acc1, acc5 = precision_at_k(output, y, top_k=(1, 5))
+        acc1, acc5 = precision_at_k(output, y, top_k=(1, 3))
         f1_score = f1(output, y, num_classes=self.num_classes)
-        auroc_score = auroc(output, y)
 
         log = {
             "train_loss": loss,
             "train_acc1": acc1,
             "train_acc5": acc5,
             "train_f1": f1_score,
-            "train_auroc": auroc_score
         }
         self.log_dict(log)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch
-        output = self(x)
+        (img_q, img_k), y = batch
+        output = self(img_q)
         loss = F.cross_entropy(output, y.long())
 
-        acc1, acc5 = precision_at_k(output, y, top_k=(1, 5))
+        acc1, acc5 = precision_at_k(output, y, top_k=(1, 3))
         f1_score = f1(output, y, num_classes=self.num_classes)
-        auroc_score = auroc(output, y)
+        # auroc_score = auroc(F.softmax(output.detach()), y, num_classes=self.num_classes)
         return {
             "val_loss": loss,
             "val_acc1": acc1,
             "val_acc5": acc5,
             "val_f1": f1_score,
-            "val_auroc": auroc_score
+            # "val_auroc": auroc_score
         }
 
     def validation_epoch_end(self, outputs: List[Any]) -> None:
@@ -73,13 +71,13 @@ class SSLCOVIDNet(pl.LightningModule):
         val_acc1 = mean(outputs, "val_acc1")
         val_acc5 = mean(outputs, "val_acc5")
         val_f1 = mean(outputs, "val_f1")
-        val_auroc = mean(outputs, "val_auroc")
+        # val_auroc = mean(outputs, "val_auroc")
         log = {
             "val_loss": val_loss,
             "val_acc1": val_acc1,
             "val_acc5": val_acc5,
             "val_f1": val_f1,
-            "val_auroc": val_auroc
+            # "val_auroc": val_auroc
         }
         self.log_dict(log)
 
