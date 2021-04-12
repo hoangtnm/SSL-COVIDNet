@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Iterable, Union
 
 import numpy as np
 import nvidia.dali.fn as fn
@@ -11,20 +11,24 @@ from PIL import Image
 from nvidia.dali import pipeline_def
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 
-from utils import mux
+from transforms import crop_body, moco2_train_covidxct_transforms, \
+    moco2_val_covidxct_transforms
 
 
 class UnlabeledCOVIDxCT(Dataset):
     def __init__(self, root: str, split: str = "train",
                  transform: Optional[Callable] = None,
                  target_transform: Optional[Callable] = None,
+                 sampling_ratio: Optional[float] = 1.,
                  **kwargs):
         super().__init__(**kwargs)
         assert split in ["train", "val", "test"]
         self.root = Path(root).expanduser()
-        self.df = pd.read_csv(self.root / f"{split}_COVIDx_CT-2A.txt", delimiter=" ",
-                              names=["filename", "class", "xmin", "ymin", "xmax", "ymax"])
-        self.df = self.df.sample(frac=1, random_state=1000).reset_index(drop=True)
+        self.df = pd.read_csv(
+            self.root / f"{split}_COVIDx_CT-2A.txt", delimiter=" ",
+            names=["filename", "class", "xmin", "ymin", "xmax", "ymax"])
+        self.df = self.df.sample(
+            frac=sampling_ratio, random_state=1000).reset_index(drop=True)
         self.transform = transform
         self.target_transform = target_transform
 
@@ -34,7 +38,8 @@ class UnlabeledCOVIDxCT(Dataset):
     def __getitem__(self, idx):
         data = self.df.iloc[idx]
         filepath = Path(self.root) / "2A_images" / data["filename"]
-        xmin, ymin, xmax, ymax = data["xmin"], data["ymin"], data["xmax"], data["ymax"]
+        xmin, ymin = data["xmin"], data["ymin"]
+        xmax, ymax = data["xmax"], data["ymax"]
         label = data["class"]
 
         img = Image.open(filepath).convert("RGB")
@@ -87,20 +92,27 @@ class SSLCOVIDxCT(pl.LightningDataModule):
         if stage == "fit" or stage is None:
             train_transforms = self._default_transforms() if self.train_transforms is None else self.train_transforms
             val_transforms = self._default_transforms() if self.val_transforms is None else self.val_transforms
-            self.covidxct_train = UnlabeledCOVIDxCT(self.data_dir, split="train", transform=train_transforms)
-            self.covidxct_val = UnlabeledCOVIDxCT(self.data_dir, split="val", transform=val_transforms)
+            self.covidxct_train = UnlabeledCOVIDxCT(self.data_dir,
+                                                    split="train",
+                                                    transform=train_transforms)
+            self.covidxct_val = UnlabeledCOVIDxCT(self.data_dir, split="val",
+                                                  transform=val_transforms)
 
         if stage == "test":
             test_transforms = self._default_transforms() if self.test_transforms is None else self.test_transforms
-            self.covidxct_test = UnlabeledCOVIDxCT(self.data_dir, split="test", transform=test_transforms)
+            self.covidxct_test = UnlabeledCOVIDxCT(self.data_dir, split="test",
+                                                   transform=test_transforms)
 
     def train_dataloader(self) -> DataLoader:
+        sampler = WeightedRandomSampler(
+            self.covidxct_train.sampling_weights,
+            num_samples=len(self.covidxct_train)
+        ) if self.random_sampling else None
         return DataLoader(
             self.covidxct_train,
             batch_size=self.batch_size,
             shuffle=self.shuffle,
-            sampler=WeightedRandomSampler(self.covidxct_train.sampling_weights,
-                                          num_samples=(len(self.covidxct_train))) if self.random_sampling else None,
+            sampler=sampler,
             num_workers=self.num_workers,
             drop_last=self.drop_last,
             pin_memory=self.pin_memory,
@@ -133,15 +145,20 @@ class SSLCOVIDxCT(pl.LightningDataModule):
         )
 
 
-class UnlabeledCOVIDxCTIterator:
-    def __init__(self, root: str, batch_size: int, split: str = "train", random_sampling: Optional[bool] = False,
-                 **kwargs):
+class SSLCOVIDxCTIterator:
+    def __init__(self, root: str, batch_size: int, split: str = "train",
+                 sampling_ratio: Optional[float] = 1.,
+                 random_sampling: Optional[bool] = False, **kwargs):
         assert split in ["train", "val", "test"]
         self.root = Path(root).expanduser()
         self.batch_size = batch_size
-        self.df = pd.read_csv(self.root / f"{split}_COVIDx_CT-2A.txt", delimiter=" ",
-                              names=["filename", "class", "xmin", "ymin", "xmax", "ymax"])
-        self.df = self.df.sample(frac=1, random_state=1000).reset_index(drop=True)
+        self.df = pd.read_csv(self.root / f"{split}_COVIDx_CT-2A.txt",
+                              delimiter=" ",
+                              names=["filename", "class", "xmin", "ymin",
+                                     "xmax", "ymax"])
+        self.df = self.df.sample(frac=sampling_ratio,
+                                 random_state=1000).reset_index(drop=True)
+        self.sampling_ratio = sampling_ratio
         self.random_sampling = random_sampling
 
     @property
@@ -178,46 +195,57 @@ class UnlabeledCOVIDxCTIterator:
             data = self.df.iloc[sampling_idx]
             filepath = Path(self.root) / "2A_images" / data["filename"]
             f = open(filepath, "rb")
-            xmin, ymin, xmax, ymax = data["xmin"], data["ymin"], data["xmax"], data["ymax"]
+            xmin, ymin = data["xmin"], data["ymin"]
+            xmax, ymax = data["xmax"], data["ymax"]
             imgs.append(np.frombuffer(f.read(), dtype=np.uint8))
-            bboxes.append(np.array([xmin, ymin, xmax, ymax], dtype=np.uint8))
+            bboxes.append(np.array([xmin, ymin, xmax, ymax], dtype=np.uint16))
             labels.append(np.array([data["class"]], dtype=np.uint8))
             self.i = (self.i + 1) % self.n
         return imgs, labels, bboxes
 
+    def __len__(self):
+        return len(self.df)
 
-def random_grayscale(imgs, probability):
-    saturate = fn.random.coin_flip(probability=1 - probability)
-    saturate = fn.cast(saturate, dtype=types.DALIDataType.FLOAT)
-    return fn.hsv(imgs, saturation=saturate)
+    next = __next__
 
 
 @pipeline_def
-def hybrid_covidxct_train_pipe(height: Optional[int] = 224):
-    imgs, labels, bboxes = fn.external_source(source=None, num_outputs=3)
-    xmin, ymin, xmax, ymax = bboxes
-    imgs = fn.decoders.image(imgs, device="mixed", output_type=types.RGB)
-    jitter_condition = fn.random.coin_flip(dtype=types.BOOL, probability=0.8)
-    blur_condition = fn.random.coin_flip(dtype=types.BOOL, probability=0.5)
-    flip_condition = fn.random.coin_flip(dtype=types.BOOL, probability=0.5)
+def ssl_covidxct_train_pipeline(source: Union[Callable, Iterable],
+                                height: Optional[int] = 224,
+                                output_layout: Optional[str] = "CHW",
+                                device="gpu", shard_id=0, num_shards=1):
+    encoded_imgs, labels, bboxes = fn.external_source(source, num_outputs=3)
+    shapes = fn.peek_image_shape(encoded_imgs)
+    h = fn.slice(shapes, 0, 1, axes=[0])
+    w = fn.slice(shapes, 1, 1, axes=[0])
+    decoded_imgs = fn.decoders.image(encoded_imgs,
+                                     device="mixed" if device == "gpu" else "cpu",
+                                     output_type=types.RGB)
+    imgs = crop_body(decoded_imgs, bboxes, w, h)
+    q = moco2_train_covidxct_transforms(imgs, height, output_layout)
+    k = moco2_train_covidxct_transforms(imgs, height, output_layout)
+    if device == "gpu":
+        labels = labels.gpu()
+    labels = fn.cast(labels, dtype=types.INT64)
+    return q, k, labels
 
-    imgs = fn.crop(imgs, crop_pos_x=xmin, crop_pos_y=ymin, crop_w=(xmax - xmin), crop_h=(ymax - ymin))
-    imgs = fn.random_resized_crop(imgs, size=height, random_area=(.2, 1.))
-    jittered_imgs = fn.color_twist(imgs, brightness=0.4, constrast=0.4, saturation=0.4, hue=0.1)
 
-    imgs = mux(jitter_condition, jittered_imgs, imgs)
-    imgs = random_grayscale(imgs, probability=0.2)
-
-    blurred_imgs = fn.gaussian_blur(imgs, sigma=(.1, 2.))
-    imgs = mux(blur_condition, blurred_imgs, imgs)
-
-    # flipped_imgs = fn.flip(imgs)
-    # imgs = mux(flip_condition, flipped_imgs, imgs)
-    imgs = imgs / 255.
-    imgs = fn.crop_mirror_normalize(imgs,
-                                    dtype=types.FLOAT,
-                                    mirror=flip_condition,
-                                    output_layout="CHW",
-                                    mean=[0.485, 0.456, 0.406],
-                                    std=[0.229, 0.224, 0.225])
-    return imgs, labels
+@pipeline_def
+def ssl_covidxct_val_pipeline(source: Union[Callable, Iterable],
+                              height: Optional[int] = 224,
+                              output_layout: Optional[str] = "CHW",
+                              device="gpu", shard_id=0, num_shards=1):
+    encoded_imgs, labels, bboxes = fn.external_source(source, num_outputs=3)
+    shapes = fn.peek_image_shape(encoded_imgs)
+    h = fn.slice(shapes, 0, 1, axes=[0])
+    w = fn.slice(shapes, 1, 1, axes=[0])
+    decoded_imgs = fn.decoders.image(encoded_imgs,
+                                     device="mixed" if device == "gpu" else "cpu",
+                                     output_type=types.RGB)
+    imgs = crop_body(decoded_imgs, bboxes, w, h)
+    q = moco2_val_covidxct_transforms(imgs, height, output_layout)
+    k = moco2_val_covidxct_transforms(imgs, height, output_layout)
+    if device == "gpu":
+        labels = labels.gpu()
+    labels = fn.cast(labels, dtype=types.INT64)
+    return q, k, labels
