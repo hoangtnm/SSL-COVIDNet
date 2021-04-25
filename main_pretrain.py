@@ -55,5 +55,6 @@ def main():
     trainer.fit(model, datamodule=datamodule)
     # print(datamodule.num_workers)
 
+
 if __name__ == '__main__':
     main()
