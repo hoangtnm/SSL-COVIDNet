@@ -53,7 +53,7 @@ def main():
     # datamodule.prepare_data()
     # trainer.tune(model, datamodule=datamodule)
     trainer.fit(model, datamodule=datamodule)
-
+    # print(datamodule.num_workers)
 
 if __name__ == '__main__':
     main()

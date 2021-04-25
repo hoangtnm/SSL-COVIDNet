@@ -61,7 +61,7 @@ class UnlabeledCOVIDxCT(Dataset):
 class SSLCOVIDxCT(pl.LightningDataModule):
     def __init__(self,
                  data_dir: str,
-                 num_workers: Optional[int] = 8,
+                 num_workers: Optional[int] = 4,
                  batch_size: Optional[int] = 32,
                  shuffle: Optional[bool] = False,
                  random_sampling: Optional[bool] = False,
