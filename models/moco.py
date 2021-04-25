@@ -104,21 +104,21 @@ class DALIMoco_v2(Moco_v2):
             num_threads=self.num_workers)
 
         self.train_loader = LightningWrapper(
+            train_pipeline,
             len(train_eii),
             self.batch_size,
-            train_pipeline,
             ["img_q", "img_k", "label"],
             auto_reset=True)
         self.val_loader = LightningWrapper(
+            val_pipeline,
             len(val_eii),
             self.batch_size,
-            val_pipeline,
             ["img_q", "img_k", "label"],
             auto_reset=True)
         self.test_loader = LightningWrapper(
+            test_pipeline,
             len(test_eii),
             self.batch_size,
-            test_pipeline,
             ["img_q", "img_k", "label"],
             auto_reset=True)
 

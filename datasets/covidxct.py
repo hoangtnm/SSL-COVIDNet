@@ -11,8 +11,8 @@ from PIL import Image
 from nvidia.dali import pipeline_def
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 
-from transforms import crop_body, moco2_train_covidxct_transforms, \
-    moco2_val_covidxct_transforms
+from transforms import moco2_train_imagenet_transforms, \
+    moco2_val_imagenet_transforms
 
 
 class UnlabeledCOVIDxCT(Dataset):
@@ -65,7 +65,7 @@ class SSLCOVIDxCT(pl.LightningDataModule):
                  batch_size: Optional[int] = 32,
                  shuffle: Optional[bool] = False,
                  random_sampling: Optional[bool] = False,
-                 pin_memory: Optional[bool] = False,
+                 pin_memory: Optional[bool] = True,
                  drop_last: Optional[bool] = True,
                  *args: Any,
                  **kwargs: Any):
@@ -221,9 +221,17 @@ def ssl_covidxct_train_pipeline(source: Union[Callable, Iterable],
     decoded_imgs = fn.decoders.image(encoded_imgs,
                                      device="mixed" if device == "gpu" else "cpu",
                                      output_type=types.RGB)
-    imgs = crop_body(decoded_imgs, bboxes, w, h)
-    q = moco2_train_covidxct_transforms(imgs, height, output_layout)
-    k = moco2_train_covidxct_transforms(imgs, height, output_layout)
+    xmin = fn.cast(fn.slice(bboxes, 0, 1, axes=[0]), dtype=types.FLOAT)
+    ymin = fn.cast(fn.slice(bboxes, 1, 1, axes=[0]), dtype=types.FLOAT)
+    xmax = fn.cast(fn.slice(bboxes, 2, 1, axes=[0]), dtype=types.FLOAT)
+    ymax = fn.cast(fn.slice(bboxes, 3, 1, axes=[0]), dtype=types.FLOAT)
+    imgs = fn.crop(decoded_imgs,
+                   crop_pos_x=xmin / (w - height),
+                   crop_pos_y=ymin / (h - height),
+                   crop_w=(xmax - xmin),
+                   crop_h=(ymax - ymin))
+    q = moco2_train_imagenet_transforms(imgs, height, output_layout)
+    k = moco2_train_imagenet_transforms(imgs, height, output_layout)
     if device == "gpu":
         labels = labels.gpu()
     labels = fn.cast(labels, dtype=types.INT64)
@@ -242,9 +250,17 @@ def ssl_covidxct_val_pipeline(source: Union[Callable, Iterable],
     decoded_imgs = fn.decoders.image(encoded_imgs,
                                      device="mixed" if device == "gpu" else "cpu",
                                      output_type=types.RGB)
-    imgs = crop_body(decoded_imgs, bboxes, w, h)
-    q = moco2_val_covidxct_transforms(imgs, height, output_layout)
-    k = moco2_val_covidxct_transforms(imgs, height, output_layout)
+    xmin = fn.cast(fn.slice(bboxes, 0, 1, axes=[0]), dtype=types.FLOAT)
+    ymin = fn.cast(fn.slice(bboxes, 1, 1, axes=[0]), dtype=types.FLOAT)
+    xmax = fn.cast(fn.slice(bboxes, 2, 1, axes=[0]), dtype=types.FLOAT)
+    ymax = fn.cast(fn.slice(bboxes, 3, 1, axes=[0]), dtype=types.FLOAT)
+    imgs = fn.crop(decoded_imgs,
+                   crop_pos_x=xmin / (w - height),
+                   crop_pos_y=ymin / (h - height),
+                   crop_w=(xmax - xmin),
+                   crop_h=(ymax - ymin))
+    q = moco2_val_imagenet_transforms(imgs, height, output_layout)
+    k = moco2_val_imagenet_transforms(imgs, height, output_layout)
     if device == "gpu":
         labels = labels.gpu()
     labels = fn.cast(labels, dtype=types.INT64)
