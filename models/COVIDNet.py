@@ -1,6 +1,7 @@
 from typing import Any, Optional, List
 
 import pytorch_lightning as pl
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -60,28 +61,27 @@ class SSLCOVIDNet(pl.LightningModule):
         loss = F.cross_entropy(output, y.long())
 
         acc1, acc5 = precision_at_k(output, y, top_k=(1, 3))
-        f1_score = f1(output, y, num_classes=self.num_classes)
-        # auroc_score = auroc(F.softmax(output.detach()), y, num_classes=self.num_classes)
         return {
             "val_loss": loss,
             "val_acc1": acc1,
             "val_acc5": acc5,
-            "val_f1": f1_score,
-            # "val_auroc": auroc_score
+            "output": output.detach(),
+            "target": y.detach(),
         }
 
     def validation_epoch_end(self, outputs: List[Any]) -> None:
         val_loss = mean(outputs, "val_loss")
         val_acc1 = mean(outputs, "val_acc1")
         val_acc5 = mean(outputs, "val_acc5")
-        val_f1 = mean(outputs, "val_f1")
-        # val_auroc = mean(outputs, "val_auroc")
+        outputs = torch.stack([x["output"] for x in outputs]).flatten().numpy()
+        targets = torch.stack([x["target"] for x in outputs]).flatten().numpy()
+
+        val_f1 = f1(outputs, targets, num_classes=self.num_classes)
         log = {
             "val_loss": val_loss,
             "val_acc1": val_acc1,
             "val_acc5": val_acc5,
             "val_f1": val_f1,
-            # "val_auroc": val_auroc
         }
         self.log_dict(log)
 
