@@ -20,7 +20,7 @@ class SSLCOVIDNet(pl.LightningModule):
                  moco_extractor: Moco_v2,
                  num_classes: Optional[int] = 3,
                  batch_size: Optional[int] = 32,
-                 lr: Optional[float] = 1e-4):
+                 lr: Optional[float] = 1e-3):
         super().__init__()
         self.backbone = moco_extractor.encoder_q
         for param in self.backbone.parameters():
@@ -28,7 +28,7 @@ class SSLCOVIDNet(pl.LightningModule):
 
         self.last_channel = self.backbone.fc.out_features
         self.classifier = nn.Sequential(
-            nn.Dropout(0.2),
+            # nn.Dropout(0.2),
             nn.Linear(self.last_channel, num_classes)
         )
         self.num_classes = num_classes
@@ -86,7 +86,10 @@ class SSLCOVIDNet(pl.LightningModule):
         self.log_dict(log)
 
     def configure_optimizers(self):
-        return optim.AdamW(self.parameters(), lr=self.learning_rate)
+        # return optim.AdamW(self.parameters(), lr=self.learning_rate)
+        optimizer = optim.Adam(self.parameters(), self.learning_rate)
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer)
+        return [optimizer], [scheduler]
 
 
 class DALISSLCOVIDNet(SSLCOVIDNet):
