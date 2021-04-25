@@ -40,7 +40,7 @@ class Moco2TrainCovidxCTTransforms(nn.Module):
         super().__init__()
         self.transform = T.Compose([
             # BodyCrop(),
-            T.RandomSizedCrop(height, scale=(0.2, 1.)),
+            T.RandomResizedCrop(height, scale=(0.2, 1.)),
             T.RandomApply([T.ColorJitter(0.4, 0.4, 0.4, 0.1)], p=0.8),
             T.RandomGrayscale(p=0.2),
             T.RandomApply([GaussianBlur(sigma=(.1, 2.))],
