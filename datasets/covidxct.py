@@ -64,6 +64,7 @@ class SSLCOVIDxCT(pl.LightningDataModule):
                  num_workers: Optional[int] = 4,
                  batch_size: Optional[int] = 32,
                  shuffle: Optional[bool] = False,
+                 sampling_ratio: Optional[float] = 1.,
                  random_sampling: Optional[bool] = False,
                  pin_memory: Optional[bool] = True,
                  drop_last: Optional[bool] = True,
@@ -74,6 +75,7 @@ class SSLCOVIDxCT(pl.LightningDataModule):
         self.num_workers = num_workers
         self.batch_size = batch_size
         self.shuffle = shuffle
+        self.sampling_ratio = sampling_ratio
         self.random_sampling = random_sampling
         self.pin_memory = pin_memory
         self.drop_last = drop_last
@@ -94,7 +96,8 @@ class SSLCOVIDxCT(pl.LightningDataModule):
             val_transforms = self._default_transforms() if self.val_transforms is None else self.val_transforms
             self.covidxct_train = UnlabeledCOVIDxCT(self.data_dir,
                                                     split="train",
-                                                    transform=train_transforms)
+                                                    transform=train_transforms,
+                                                    sampling_ratio=self.sampling_ratio)
             self.covidxct_val = UnlabeledCOVIDxCT(self.data_dir, split="val",
                                                   transform=val_transforms)
 
