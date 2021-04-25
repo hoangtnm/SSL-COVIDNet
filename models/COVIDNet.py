@@ -44,7 +44,7 @@ class SSLCOVIDNet(pl.LightningModule):
         output = self(img_q)
         loss = F.cross_entropy(output, y.long())
         acc1, acc5 = precision_at_k(output, y, top_k=(1, 3))
-        f1_score = f1(output, y, num_classes=self.num_classes)
+        # f1_score = f1(output, y, num_classes=self.num_classes)
 
         log = {
             "train_loss": loss,
