@@ -45,6 +45,7 @@ class Moco2TrainCovidxCTTransforms(nn.Module):
             T.RandomGrayscale(p=0.2),
             T.RandomApply([GaussianBlur(sigma=(.1, 2.))],
                           p=0.5),
+            T.RandomVerticalFlip(),
             T.RandomHorizontalFlip(),
             # T.ConvertImageDtype(torch.float),
             T.ToTensor(),
