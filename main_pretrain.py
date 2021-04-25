@@ -17,7 +17,7 @@ torch.backends.cudnn.benchmark = True
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--phase", default="pretrain",
-                        choices=["pretrain", "finetuning"], help="")
+                        choices=["pretrain", "finetune"], help="")
     parser.add_argument("--base_encoder_checkpoint", help="")
     parser.add_argument("--early_stopping_patience", type=int, default=10)
     parser.add_argument("--random_sampling", action="store_true",
