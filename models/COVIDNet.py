@@ -50,7 +50,6 @@ class SSLCOVIDNet(pl.LightningModule):
             "train_loss": loss,
             "train_acc1": acc1,
             "train_acc5": acc5,
-            "train_f1": f1_score,
         }
         self.log_dict(log)
         return loss
