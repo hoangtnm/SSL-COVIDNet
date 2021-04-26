@@ -30,8 +30,8 @@ def main():
         model = Moco_v2(**args.__dict__)
     else:
         assert Path(args.base_encoder_checkpoint).exists()
-        feature_extractor = Moco_v2(**args.__dict__)
-        feature_extractor = feature_extractor.load_from_checkpoint(
+        # feature_extractor = Moco_v2(**args.__dict__)
+        feature_extractor = Moco_v2.load_from_checkpoint(
             args.base_encoder_checkpoint)
         model = SSLCOVIDNet(feature_extractor, num_classes=3)
     # logger = TensorBoardLogger(save_dir=Path(".").absolute(),
