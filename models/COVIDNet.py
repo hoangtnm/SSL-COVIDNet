@@ -69,16 +69,18 @@ class SSLCOVIDNet(pl.LightningModule):
             "val_loss": loss,
             "val_acc1": acc1,
             "val_acc5": acc5,
-            "output": pred.detach().cpu(),
-            "target": y.detach().cpu(),
+            "output": pred,
+            "target": y,
         }
 
     def validation_epoch_end(self, outputs: List[Any]) -> None:
         val_loss = mean(outputs, "val_loss")
         val_acc1 = mean(outputs, "val_acc1")
         val_acc5 = mean(outputs, "val_acc5")
-        outputs = torch.stack([x["output"] for x in outputs]).flatten().numpy()
-        targets = torch.stack([x["target"] for x in outputs]).flatten().numpy()
+        targets = torch.stack(
+            [x["target"].detach() for x in outputs]).flatten()
+        outputs = torch.stack(
+            [x["output"].detach() for x in outputs]).flatten()
 
         val_f1 = f1(outputs, targets, num_classes=self.num_classes)
         log = {
