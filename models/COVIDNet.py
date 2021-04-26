@@ -63,11 +63,13 @@ class SSLCOVIDNet(pl.LightningModule):
         loss = F.cross_entropy(output, y.long())
 
         acc1, acc5 = precision_at_k(output, y, top_k=(1, 3))
+        _, pred = torch.max(output, 1)
+
         return {
             "val_loss": loss,
             "val_acc1": acc1,
             "val_acc5": acc5,
-            "output": output.detach().cpu(),
+            "output": pred.detach().cpu(),
             "target": y.detach().cpu(),
         }
 
