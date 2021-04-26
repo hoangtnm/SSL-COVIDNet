@@ -67,8 +67,8 @@ class SSLCOVIDNet(pl.LightningModule):
             "val_loss": loss,
             "val_acc1": acc1,
             "val_acc5": acc5,
-            "output": output.detach(),
-            "target": y.detach(),
+            "output": output.detach().cpu(),
+            "target": y.detach().cpu(),
         }
 
     def validation_epoch_end(self, outputs: List[Any]) -> None:
