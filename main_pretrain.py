@@ -34,7 +34,7 @@ def main():
         feature_extractor = Moco_v2.load_from_checkpoint(
             args.base_encoder_checkpoint)
         model = SSLCOVIDNet(feature_extractor, num_classes=3,
-                            epochs=args.epochs)
+                            epochs=args.max_epochs)
     # logger = TensorBoardLogger(save_dir=Path(".").absolute(),
     #                            name='lightning_logs',
     #                            default_hp_metric=False)
