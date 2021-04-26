@@ -26,7 +26,8 @@ class SSLCOVIDNet(pl.LightningModule):
         for param in self.backbone.parameters():
             param.requires_grad = False
 
-        self.last_channel = self.backbone.fc.out_features
+        # self.last_channel = self.backbone.fc.out_features
+        self.last_channel = self.backbone.classifier.out_features
         self.classifier = nn.Sequential(
             # nn.Dropout(0.2),
             nn.Linear(self.last_channel, num_classes)
