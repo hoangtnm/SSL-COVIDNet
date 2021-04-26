@@ -20,8 +20,8 @@ class SSLCOVIDNet(pl.LightningModule):
                  moco_extractor: Moco_v2,
                  num_classes: Optional[int] = 3,
                  batch_size: Optional[int] = 32,
-                 lr: Optional[float] = 1e-3,
-                 epochs: Optional[float] = 5):
+                 learning_rate: Optional[float] = 1e-3,
+                 epochs: Optional[float] = 5, **kwargs):
         super().__init__()
         self.backbone = moco_extractor.encoder_q
         for param in self.backbone.parameters():
@@ -35,7 +35,7 @@ class SSLCOVIDNet(pl.LightningModule):
         )
         self.num_classes = num_classes
         self.batch_size = batch_size
-        self.learning_rate = lr
+        self.learning_rate = learning_rate
         self.epochs = epochs
 
     def forward(self, x: Tensor) -> Tensor:
