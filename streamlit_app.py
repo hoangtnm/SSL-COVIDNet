@@ -50,8 +50,7 @@ try:
     sidebar.selectbox("Choose a demo",
                       ("Exploratory Data Analysis", "COVID-19 Detection"))
 
-    uploaded_image = st.file_uploader("Upload CT-Scan file",
-                                      type=["png", "jpg", "jpeg"])
+    uploaded_image = st.file_uploader("Upload CT-Scan file", type=["png"])
 
     if not uploaded_image:
         st.info("Please upload a CT-Scan file")
