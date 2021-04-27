@@ -1,3 +1,7 @@
+# Author:
+# See details at
+# https://github.com/haydengunraj/COVIDNet-CT/blob/master/data_utils.py
+
 import cv2
 import numpy as np
 
