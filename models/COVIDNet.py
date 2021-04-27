@@ -24,8 +24,8 @@ class SSLCOVIDNet(pl.LightningModule):
                  epochs: Optional[int] = 5, **kwargs):
         super().__init__()
         self.backbone = moco_extractor.encoder_q
-        # for param in self.backbone.parameters():
-        #     param.requires_grad = False
+        for param in self.backbone.parameters():
+            param.requires_grad = False
 
         # self.last_channel = self.backbone.fc.out_features
         self.last_channel = self.backbone.classifier.out_features
@@ -93,10 +93,11 @@ class SSLCOVIDNet(pl.LightningModule):
 
     def configure_optimizers(self):
         # return optim.AdamW(self.parameters(), lr=self.learning_rate)
-        optimizer = optim.Adam([
-            {"params": self.backbone.parameters(), "lr": 1e-5},
-            {"params": self.classifier.parameters()}
-        ], self.learning_rate)
+        # optimizer = optim.Adam([
+        #     {"params": self.backbone.parameters(), "lr": 1e-5},
+        #     {"params": self.classifier.parameters()}
+        # ], self.learning_rate)
+        optimizer = optim.Adam(self.parameters(), self.learning_rate)
         scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, self.epochs)
         return [optimizer], [scheduler]
 
