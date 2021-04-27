@@ -21,7 +21,7 @@ class SSLCOVIDNet(pl.LightningModule):
                  num_classes: Optional[int] = 3,
                  batch_size: Optional[int] = 32,
                  learning_rate: Optional[float] = 1e-3,
-                 epochs: Optional[float] = 5, **kwargs):
+                 epochs: Optional[int] = 5, **kwargs):
         super().__init__()
         self.backbone = moco_extractor.encoder_q
         # for param in self.backbone.parameters():
