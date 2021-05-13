@@ -88,7 +88,7 @@ def app():
           booktitle    = "",\n
           year         = "2021",\n
           pages        = "",\n
-          publisher    = "",
+          publisher    = "",\n
           address   = "Danang, Vietnam"
         }
     """)
