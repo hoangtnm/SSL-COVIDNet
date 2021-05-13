@@ -88,7 +88,6 @@ def app():
             get_line_color=[255, 0, 0],
             tooltip="test test",
         )
-        # covidLayer.data = df[df["last_update"] == date.isoformat()]
 
         # Create the deck.gl map
         r = pdk.Deck(
