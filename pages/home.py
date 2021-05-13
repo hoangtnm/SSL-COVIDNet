@@ -80,33 +80,6 @@ def app():
         FC layer for the task of classification.
     """)
 
-    st.header("Experimental Results")
-    st.subheader("Pretraining")
-    st.image(str(IMG_DIR / "exp_pretrain_acc1.png"))
-    st.write("""
-        The above figure demonstrates that from the first 30.000 early steps of
-        both training and validation, our proposed model is able to achieve a
-        higher and more stable accuracy increase compared to the other models.
-        Moreover, this trend tends to continue through the pretraining phase,
-        and our proposed model is also able to achieve a higher accuracy of
-        approximately 98% with the half time at the 45.000th training step.
-    """)
-    st.subheader("Fine-tuning")
-    st.image(str(IMG_DIR / "finetune_acc1.png"))
-    st.write("""
-        The above figure demonstrates the accuracy during fine-tuning phase.
-        For fine-tuning, weighted random sampling is applied to deal with the data imbalance.
-        Interestingly, it can be seen that the model is able to reach the
-        accuracy of approximately 84% on both training and validation set right
-        from the first epoch, which is hard to achieve when using
-        transfer learning via supervised learning.
-        Moreover, this model tends to increase accuracy through time and reaches
-        about 86.5% as its best accuracy on the validation set.
-    """)
-    st.latex(r"""
-        prob^{c}_{sampling} = \frac{1}{\text{Total number of samples of class } c}
-    """)
-
     st.header("Citation")
     st.info("""
         @inproceedings{sslcovidnet,\n

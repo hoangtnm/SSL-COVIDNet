@@ -11,9 +11,6 @@ PAGES = {
 sidebar = st.sidebar
 selection = sidebar.selectbox("Navigate",
                               ["Home", "Dashboard", "COVID-19 Diagnosis"])
-# sidebar.header("Keywords")
-# sidebar.info("""COVID-19, Deep Learning, Self-Supervised Learning,
-# Medical Imaging, Computer Tomography.""")
 sidebar.header("About")
 sidebar.info("""
     The application is maintained by Tran N.M. Hoang.
