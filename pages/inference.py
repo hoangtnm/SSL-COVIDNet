@@ -53,7 +53,8 @@ def app():
         model.eval()
 
         st.header("Upload Chest CT Image for Diagnosis")
-        uploaded_image = st.file_uploader("Upload CT-Scan file", type=["png"])
+        uploaded_image = st.file_uploader("Upload CT-Scan file", type=["png"],
+                                          accept_multiple_files=False)
 
         if not uploaded_image:
             st.info("Please upload a CT-Scan file")
