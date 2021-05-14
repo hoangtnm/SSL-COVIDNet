@@ -41,11 +41,12 @@ def app():
         (1) COVID-19 postitive, (2) common pneumonia and, (3) normal cases.
     """)
 
-    st.header("""
-        Functionalities
-        - Dashboard for statistical analysis
-        - Upload chest CT image for COVID-19 Diagnosis
-    """)
+    st.header("Functionalities")
+    st.subheader("Dashboard for Statistics Analysis")
+    st.image(str(IMG_DIR / "dashboard_2.png"))
+    st.image(str(IMG_DIR / "dashboard_3.png"))
+    st.subheader("Upload chest CT image for COVID-19 Diagnosis")
+    st.image(str(IMG_DIR / "diagnosis.png"))
 
     st.header("The Proposed Model: Self-Supervised COVIDNet")
     st.subheader("Self-Supervised Pretraining using MoCo")
