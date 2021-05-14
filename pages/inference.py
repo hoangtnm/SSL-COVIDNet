@@ -36,16 +36,23 @@ def get_net(backbone_checkpoint, model_checkpoint):
 def app():
     try:
         st.title("COVID-19 Diagnosis")
+        st.header("Instruction Guide")
+        st.write("""
+            - Upload a single chest CT image.
+            - Wait for diagnosis result to be returned.
+        """)
+        st.subheader("Notes:")
+        st.write("""
+            - Chest CT image can be extracted from CT Scanner.
+            - The diagnosis system and RT-PCR is complementary, not competitive.
+            - Only PNG format is supported.
+        """)
         assert Path(BACKBONE_CHECKPOINT).exists(), "FE checkpoint not found."
         assert Path(MODEL_CHECKPOINT).exists(), "Model checkpoint not found."
         model = get_net(BACKBONE_CHECKPOINT, MODEL_CHECKPOINT)
         model.eval()
 
-        sidebar = st.sidebar
-        sidebar.title("Sidebar")
-        sidebar.selectbox("Choose a demo",
-                          ("Exploratory Data Analysis", "COVID-19 Detection"))
-
+        st.header("Upload Chest CT Image for Diagnosis")
         uploaded_image = st.file_uploader("Upload CT-Scan file", type=["png"])
 
         if not uploaded_image:
