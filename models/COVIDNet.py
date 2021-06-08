@@ -1,13 +1,15 @@
+from pathlib import Path
 from typing import Any, Optional, List
 
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.optim as optim
+from monai.optimizers import Novograd
 from pl_bolts.metrics import mean, precision_at_k
 from pl_bolts.models.self_supervised import Moco_v2
 from torch import Tensor
+from torchmetrics import Accuracy
 from torchmetrics.functional import f1
 
 from datasets.covidxct import SSLCOVIDxCTIterator, ssl_covidxct_train_pipeline, \
@@ -15,28 +17,38 @@ from datasets.covidxct import SSLCOVIDxCTIterator, ssl_covidxct_train_pipeline, 
 from utils.dali import DALIGenericIteratorV2
 
 
+def filter_nans(logits, labels):
+    logits = logits[~torch.isnan(labels)]
+    labels = labels[~torch.isnan(labels)]
+    return logits, labels
+
+
 class SSLCOVIDNet(pl.LightningModule):
     def __init__(self,
-                 moco_extractor: Moco_v2,
+                 moco_checkpoint: str,
                  num_classes: Optional[int] = 3,
                  batch_size: Optional[int] = 32,
                  learning_rate: Optional[float] = 1e-3,
                  epochs: Optional[int] = 5, **kwargs):
         super().__init__()
-        self.backbone = moco_extractor.encoder_q
-        for param in self.backbone.parameters():
-            param.requires_grad = False
+        assert Path(moco_checkpoint).expanduser().exists()
+        moco_model = Moco_v2.load_from_checkpoint(moco_checkpoint)
+        self.backbone = moco_model.encoder_q
+        # for param in self.backbone.parameters():
+        #     param.requires_grad = False
 
-        # self.last_channel = self.backbone.fc.out_features
-        self.last_channel = self.backbone.classifier.out_features
+        self.last_channel = list(self.backbone.children())[-1].out_features
         self.classifier = nn.Sequential(
-            # nn.Dropout(0.2),
+            nn.Hardswish(inplace=True),
+            nn.Dropout(0.2, inplace=True),
             nn.Linear(self.last_channel, num_classes)
         )
         self.num_classes = num_classes
         self.batch_size = batch_size
         self.learning_rate = learning_rate
         self.epochs = epochs
+        self.train_acc = Accuracy()
+        self.val_acc = Accuracy()
 
     def forward(self, x: Tensor) -> Tensor:
         embedding = self.backbone(x)
@@ -92,19 +104,18 @@ class SSLCOVIDNet(pl.LightningModule):
         self.log_dict(log)
 
     def configure_optimizers(self):
-        # return optim.AdamW(self.parameters(), lr=self.learning_rate)
-        # optimizer = optim.Adam([
-        #     {"params": self.backbone.parameters(), "lr": 1e-5},
-        #     {"params": self.classifier.parameters()}
-        # ], self.learning_rate)
-        optimizer = optim.Adam(self.parameters(), self.learning_rate)
-        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, self.epochs)
-        return [optimizer], [scheduler]
+        # optimizer = Novograd(self.parameters(), self.learning_rate)
+        # scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, self.epochs)
+        # return [optimizer], [scheduler]
+        return Novograd([
+            {"params": self.backbone.parameters(), "lr": 1e-5},
+            {"params": self.classifier.parameters()}
+        ], self.learning_rate)
 
 
 class DALISSLCOVIDNet(SSLCOVIDNet):
     def __init__(self,
-                 moco_extractor: Moco_v2,
+                 moco_checkpoint: str,
                  data_dir: str,
                  num_workers: Optional[int] = 4,
                  sampling_ratio: Optional[float] = 1.,
@@ -112,7 +123,7 @@ class DALISSLCOVIDNet(SSLCOVIDNet):
                  num_classes: Optional[int] = 3,
                  batch_size: Optional[int] = 32,
                  lr: Optional[float] = 1e-4):
-        super().__init__(moco_extractor, num_classes, batch_size, lr)
+        super().__init__(moco_checkpoint, num_classes, batch_size, lr)
         self.data_dir = data_dir
         self.num_workers = num_workers
         self.sampling_ratio = sampling_ratio
