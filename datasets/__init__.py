@@ -1,1 +1,1 @@
-from .covidxct import UnlabeledCOVIDxCT, SSLCOVIDxCT
+from .covidxct import UnlabeledCOVIDxCT, SSLCOVIDxCTDataModule

@@ -1,2 +1,2 @@
-from .COVIDNet import SSLCOVIDNet, DALISSLCOVIDNet
-from .moco import DALIMoco_v2
+from .sslcovidnet import SSLCOVIDNet
+from .moco2_module import MoCoV2
