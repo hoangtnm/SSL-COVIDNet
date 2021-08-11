@@ -50,7 +50,7 @@ pip install --extra-index-url https://developer.download.nvidia.com/compute/redi
 ### Pretraining
 
 ```bash
-python main.py \
+python main_pretrain.py \
   --phase pretrain \
   --base_encoder densenet121 \
   --emb_dim 256 \
@@ -64,7 +64,7 @@ python main.py \
 ### Fine-tuning
 
 ```bash
-python main.py \
+python main_pretrain.py \
   --phase finetune \
   --base_encoder densenet121 \
   --emb_dim 256 \

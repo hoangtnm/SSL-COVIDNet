@@ -30,7 +30,6 @@ class UnlabeledCOVIDxCT(Dataset):
         self.df = df.sample(
             frac=self.sampling_ratio, random_state=1000
         ).reset_index(drop=True)
-        self.pathology_list = ["normal", "pneumonia", "covid"]
         self.transform = transform
         self.target_transform = target_transform
 
@@ -85,6 +84,7 @@ class SSLCOVIDxCTDataModule(pl.LightningDataModule):
         self.train_transforms = None
         self.val_transforms = None
         self.test_transforms = None
+        self.pathology_list = ["normal", "pneumonia", "covid"]
 
     @property
     def num_classes(self) -> int:
