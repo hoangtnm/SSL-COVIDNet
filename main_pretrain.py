@@ -28,12 +28,18 @@ def main():
     )
 
     model = MoCoV2(**args.__dict__)
-    checkpointing = ModelCheckpoint(
-        monitor="val_loss",
-        filename=f"{args.base_encoder}" \
+    best_checkpointing = ModelCheckpoint(
+        monitor="val_acc1",
+        filename=f"best_{args.base_encoder}" \
                  "{epoch}-{val_loss:.2f}-{val_acc1:.2f}",
         save_top_k=1,
-        mode="min",
+        mode="max",
+    )
+    checkpointing = ModelCheckpoint(
+        monitor="val_acc1",
+        filename=f"{args.base_encoder}" \
+                 "{epoch}-{val_loss:.2f}-{val_acc1:.2f}",
+        save_top_k=-1,
     )
 
     # early_stop_callback = EarlyStopping(
@@ -41,7 +47,7 @@ def main():
     #     patience=args.early_stopping_patience,
     #     mode="min"
     # )
-    callbacks = [checkpointing]
+    callbacks = [best_checkpointing, checkpointing]
     plugins = DDPPlugin(
         find_unused_parameters=False
     ) if args.gpus >= 2 else None
