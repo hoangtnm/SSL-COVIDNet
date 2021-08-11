@@ -79,7 +79,8 @@ class HistogramNormalize:
             img.flatten(), self.number_bins, density=True
         )
         cdf = img_histogram.cumsum()  # cumulative distribution
-        cdf = 255 * cdf / cdf[-1]  # normalize
+        # cdf = 255 * cdf / cdf[-1]  # normalize
+        cdf = cdf / cdf[-1]  # normalize
 
         # use linear interpolation of cdf to find new pixel values
         img_equalized = np.interp(img.flatten(), bins[:-1], cdf)
@@ -98,7 +99,7 @@ class MocoTrainCTTransforms:
             T.ScaleIntensityRange(0, 255, 0, 1),
             RandomGaussianBlur(),
             T.RandGaussianNoise(0.5),
-            # HistogramNormalize(),
+            HistogramNormalize(),
             T.ToTensor(),
         ]
         if out_channels == 3:
@@ -119,7 +120,7 @@ class MocoEvalCTTransforms:
             T.CenterSpatialCrop((224, 224)),
             T.CastToType(np.float32),
             T.ScaleIntensityRange(0, 255, 0, 1),
-            # HistogramNormalize(),
+            HistogramNormalize(),
             T.ToTensor(),
         ]
         if out_channels == 3:
@@ -130,3 +131,42 @@ class MocoEvalCTTransforms:
         q = self.transform(inp)
         k = self.transform(inp)
         return q, k
+
+
+class FineTuneTrainCTTransforms:
+    def __init__(self, height: int = 224, out_channels: int = 3):
+        transforms = [
+            T.AddChannel(),
+            T.Resize((height + 32, height + 32)),
+            T.CenterSpatialCrop((height, height)),
+            T.RandFlip(0.5, spatial_axis=(0, 1)),
+            T.CastToType(np.float32),
+            T.ScaleIntensityRange(0, 255, 0, 1),
+            HistogramNormalize(),
+            T.ToTensor(),
+        ]
+        if out_channels == 3:
+            transforms.insert(-1, T.RepeatChannel(3))
+        self.transform = T.Compose(transforms)
+
+    def __call__(self, inp: np.ndarray) -> Tensor:
+        return self.transform(inp)
+
+
+class FineTuneEvalCTTransforms:
+    def __init__(self, height: int = 224, out_channels: int = 3):
+        transforms = [
+            T.AddChannel(),
+            T.Resize((height + 32, height + 32)),
+            T.CenterSpatialCrop((height, height)),
+            T.CastToType(np.float32),
+            T.ScaleIntensityRange(0, 255, 0, 1),
+            HistogramNormalize(),
+            T.ToTensor(),
+        ]
+        if out_channels == 3:
+            transforms.insert(-1, T.RepeatChannel(3))
+        self.transform = T.Compose(transforms)
+
+    def __call__(self, inp: np.ndarray) -> Tensor:
+        return self.transform(inp)
