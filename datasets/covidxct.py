@@ -84,7 +84,6 @@ class SSLCOVIDxCTDataModule(pl.LightningDataModule):
         self.train_transforms = None
         self.val_transforms = None
         self.test_transforms = None
-        self.pathology_list = ["normal", "pneumonia", "covid"]
 
     @property
     def num_classes(self) -> int:
@@ -157,3 +156,11 @@ class SSLCOVIDxCTDataModule(pl.LightningDataModule):
             T.RepeatChannel(3),
             T.ToTensor(),
         ])
+
+    @classmethod
+    def add_argparse_args(cls, parent_parser, **kwargs):
+        parser = parent_parser.add_argument_group(title="SSLCOVIDxCTDataModule")
+        parser.add_argument("--sampling_ratio", type=float, default=1.0)
+        parser.add_argument("--random_sampling", action="store_true",
+                            help="Whether to use weighted random sampling.")
+        return parent_parser
