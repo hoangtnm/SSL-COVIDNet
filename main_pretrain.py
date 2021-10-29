@@ -1,60 +1,34 @@
-import argparse
-
-import pytorch_lightning as pl
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.plugins import DDPPlugin
+from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
+from pytorch_lightning.utilities.cli import LightningCLI
 
 from datasets import SSLCOVIDxCTDataModule
 from models import MoCoV2
-from transforms import MocoTrainCTTransforms, MocoEvalCTTransforms
+
+
+class MyLightningCLI(LightningCLI):
+    def add_arguments_to_parser(self, parser):
+        parser.link_arguments("model.data_dir", "data.data_dir")
+        parser.link_arguments("model.batch_size", "data.batch_size")
+        parser.link_arguments("model.num_workers", "data.num_workers")
+        parser.add_lightning_class_args(ModelCheckpoint, "best_loss_checkpoint")
+        parser.add_lightning_class_args(ModelCheckpoint, "best_acc_checkpoint")
+        parser.add_lightning_class_args(ModelCheckpoint, "last_checkpoint")
+        parser.add_lightning_class_args(LearningRateMonitor, "lr_monitor")
+        parser.set_defaults({
+            "best_loss_checkpoint.monitor": "val_loss",
+            "best_loss_checkpoint.filename": "best_loss_{epoch}-{val_loss:.2f}-{val_acc1:.2f}-{val_acc5:.2f}",
+            "best_loss_checkpoint.mode": "min",
+            "best_acc_checkpoint.monitor": "val_acc1",
+            "best_acc_checkpoint.filename": "best_acc_{epoch}-{val_loss:.2f}-{val_acc1:.2f}-{val_acc5:.2f}",
+            "best_acc_checkpoint.mode": "max",
+            "last_checkpoint.filename": "last_{epoch}-{val_loss:.2f}-{val_acc1:.2f}-{val_acc5:.2f}",
+            "lr_monitor.logging_interval": "step",
+        })
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    # parser.add_argument("--early_stopping_patience", type=int, default=10)
-    parser.add_argument("--sampling_ratio", type=float, default=1.0)
-    parser.add_argument("--random_sampling", action="store_true",
-                        help="Whether to user Random Sampling when fine-tuning")
-    parser = pl.Trainer.add_argparse_args(parser)
-    parser = MoCoV2.add_model_specific_args(parser)
-    args = parser.parse_args()
-
-    datamodule = SSLCOVIDxCTDataModule.from_argparse_args(args)
-    datamodule.train_transforms = MocoTrainCTTransforms(
-        height=224, out_channels=args.in_channels
-    )
-    datamodule.val_transforms = MocoEvalCTTransforms(
-        height=224, out_channels=args.in_channels,
-    )
-
-    model = MoCoV2(**args.__dict__)
-    best_checkpointing = ModelCheckpoint(
-        monitor="val_acc1",
-        filename=f"best_{args.base_encoder}" \
-                 "{epoch}-{val_loss:.2f}-{val_acc1:.2f}",
-        save_top_k=1,
-        mode="max",
-    )
-    checkpointing = ModelCheckpoint(
-        monitor="val_acc1",
-        filename=f"{args.base_encoder}" \
-                 "{epoch}-{val_loss:.2f}-{val_acc1:.2f}",
-        save_top_k=-1,
-    )
-
-    # early_stop_callback = EarlyStopping(
-    #     monitor="val_loss",
-    #     patience=args.early_stopping_patience,
-    #     mode="min"
-    # )
-    callbacks = [best_checkpointing, checkpointing]
-    plugins = DDPPlugin(
-        find_unused_parameters=False
-    ) if args.gpus >= 2 else None
-    trainer = pl.Trainer.from_argparse_args(
-        args, callbacks=callbacks, plugins=plugins
-    )
-    trainer.fit(model, datamodule=datamodule)
+    cli = MyLightningCLI(MoCoV2, SSLCOVIDxCTDataModule,
+                         save_config_overwrite=True)
 
 
 if __name__ == '__main__':

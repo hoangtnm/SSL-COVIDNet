@@ -1,12 +1,18 @@
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-import monai.transforms as T
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
+
+from transforms.albumentations import MocoTrainTransforms, MocoEvalTransforms
+
+
+# from transforms.albumentations import MocoTrainCTTransforms, \
+#     MocoEvalCTTransforms
+# from transforms.monai import MocoTrainCTTransforms, MocoEvalCTTransforms
 
 
 class UnlabeledCOVIDxCT(Dataset):
@@ -65,7 +71,6 @@ class SSLCOVIDxCTDataModule(pl.LightningDataModule):
                  data_dir: str,
                  num_workers: int = 4,
                  batch_size: int = 32,
-                 shuffle: bool = False,
                  sampling_ratio: float = 1.0,
                  random_sampling: bool = False,
                  pin_memory: bool = True,
@@ -76,14 +81,10 @@ class SSLCOVIDxCTDataModule(pl.LightningDataModule):
         self.data_dir = data_dir
         self.num_workers = num_workers
         self.batch_size = batch_size
-        self.shuffle = shuffle
         self.sampling_ratio = sampling_ratio
         self.random_sampling = random_sampling
         self.pin_memory = pin_memory
         self.drop_last = drop_last
-        self.train_transforms = None
-        self.val_transforms = None
-        self.test_transforms = None
 
     @property
     def num_classes(self) -> int:
@@ -94,10 +95,8 @@ class SSLCOVIDxCTDataModule(pl.LightningDataModule):
 
     def setup(self, stage: Optional[str] = None):
         if stage == "fit" or stage is None:
-            train_transforms = self._default_transforms() \
-                if self.train_transforms is None else self.train_transforms
-            val_transforms = self._default_transforms() \
-                if self.val_transforms is None else self.val_transforms
+            train_transforms = self._moco_train_transforms()
+            val_transforms = self._moco_val_transforms()
             self.covidxct_train = UnlabeledCOVIDxCT(
                 self.data_dir, split="train", transform=train_transforms,
                 sampling_ratio=self.sampling_ratio,
@@ -122,7 +121,7 @@ class SSLCOVIDxCTDataModule(pl.LightningDataModule):
         return DataLoader(
             self.covidxct_train,
             batch_size=self.batch_size,
-            shuffle=self.shuffle,
+            shuffle=True,
             sampler=sampler,
             num_workers=self.num_workers,
             drop_last=self.drop_last,
@@ -133,7 +132,6 @@ class SSLCOVIDxCTDataModule(pl.LightningDataModule):
         return DataLoader(
             self.covidxct_val,
             batch_size=self.batch_size,
-            shuffle=self.shuffle,
             num_workers=self.num_workers,
             drop_last=self.drop_last,
             pin_memory=self.pin_memory,
@@ -143,19 +141,16 @@ class SSLCOVIDxCTDataModule(pl.LightningDataModule):
         return DataLoader(
             self.covidxct_test,
             batch_size=self.batch_size,
-            shuffle=self.shuffle,
             num_workers=self.num_workers,
             drop_last=self.drop_last,
             pin_memory=self.pin_memory,
         )
 
-    def _default_transforms(self) -> Callable:
-        return T.Compose([
-            T.AddChannel(),
-            T.ScaleIntensityRange(0, 255, 0, 1),
-            T.RepeatChannel(3),
-            T.ToTensor(),
-        ])
+    def _moco_train_transforms(self) -> Callable:
+        return MocoTrainTransforms(224)
+
+    def _moco_val_transforms(self) -> Callable:
+        return MocoEvalTransforms(224)
 
     @classmethod
     def add_argparse_args(cls, parent_parser, **kwargs):

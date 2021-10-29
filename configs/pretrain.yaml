@@ -1,0 +1,41 @@
+seed_everything: null
+trainer:
+  gpus: 2
+  max_epochs: 200
+  limit_train_batches: 1.0
+  limit_val_batches: 1.0
+  limit_test_batches: 1.0
+  plugins: ddp_find_unused_parameters_false
+  precision: 32
+  resume_from_checkpoint: null
+model:
+  base_encoder: densenet121
+  emb_dim: 256
+  num_negatives: 65536
+  encoder_momentum: 0.999
+  softmax_temperature: 0.07
+  learning_rate: 0.03
+  momentum: 0.9
+  weight_decay: 0.0001
+  data_dir: /home/Downloads/SSL_Dataset
+  batch_size: 256
+  use_mlp: true
+  num_workers: 4
+data:
+  sampling_ratio: 1.0
+  random_sampling: false
+  pin_memory: true
+  drop_last: true
+best_loss_checkpoint:
+  filename: 'best_loss_{epoch}-{val_loss:.2f}-{val_acc1:.2f}-{val_acc5:.2f}'
+  monitor: val_loss
+  mode: min
+best_acc_checkpoint:
+  filename: 'best_acc_{epoch}-{val_loss:.2f}-{val_acc1:.2f}-{val_acc5:.2f}'
+  monitor: val_acc1
+  mode: max
+last_checkpoint:
+  filename: 'last_{epoch}-{val_loss:.2f}-{val_acc1:.2f}-{val_acc5:.2f}'
+lr_monitor:
+  logging_interval: step
+  log_momentum: false

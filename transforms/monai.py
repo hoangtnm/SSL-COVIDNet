@@ -6,15 +6,6 @@ from scipy.ndimage import gaussian_filter
 from torch import Tensor
 
 
-# import torchio as tio
-# from monai.transforms.adaptors import adaptor
-
-
-# class AddDepthChannel:
-#     def __call__(self, img: np.ndarray):
-#         return img[..., None]
-
-
 class RandomGaussianBlur:
     """Random Gaussian blur transform.
 
@@ -99,7 +90,7 @@ class MocoTrainCTTransforms:
             T.ScaleIntensityRange(0, 255, 0, 1),
             RandomGaussianBlur(),
             T.RandGaussianNoise(0.5),
-            HistogramNormalize(),
+            # HistogramNormalize(),
             T.ToTensor(),
         ]
         if out_channels == 3:
@@ -120,7 +111,7 @@ class MocoEvalCTTransforms:
             T.CenterSpatialCrop((224, 224)),
             T.CastToType(np.float32),
             T.ScaleIntensityRange(0, 255, 0, 1),
-            HistogramNormalize(),
+            # HistogramNormalize(),
             T.ToTensor(),
         ]
         if out_channels == 3:
