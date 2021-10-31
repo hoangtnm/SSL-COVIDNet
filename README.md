@@ -38,17 +38,16 @@ docker run --rm -it --gpus '"device=2,3"' \
 ### Fine-tuning
 
 ```bash
-python main_pretrain.py \
-  --phase finetune \
-  --base_encoder densenet121 \
-  --emb_dim 256 \
-  --data_dir ../archive \
-  --gpus 1 \
-  --batch_size 128 \
-  --num_workers 4 \
-  --random_sampling \
-  --base_encoder_checkpoint ./lightning_logs/version_1/checkpoints/densenet121epoch=21-val_loss=1.42.ckpt \
-  --max_epochs 10
+docker run --rm -it --gpus '"device=2,3"' \
+  --shm-size 16G --privileged \
+  -v ~/Downloads:/home/Downloads \
+  -v $(pwd):/moco \
+  moco python main_finetune.py \
+  --config configs/finetune.yaml \
+  --trainer.gpus 1 \
+  --trainer.precision 16 \
+  --model.pretrained CHECKPOINT \
+  --data.random_sampling true
 ```
 
 ### Deployment with Streamlit

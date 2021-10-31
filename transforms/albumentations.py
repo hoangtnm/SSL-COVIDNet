@@ -136,3 +136,31 @@ class MocoEvalTransforms:
         q = self.transform(image=inp)["image"]
         k = self.transform(image=inp)["image"]
         return q, k
+
+
+class FinetuneTrainTransforms:
+    def __init__(self, target_size: int = 224):
+        self.transform = A.Compose([
+            ToRGB(),
+            A.RandomResizedCrop(target_size, target_size, scale=(0.2, 1.0)),
+            A.HorizontalFlip(),
+            A.Normalize((0.673, 0.673, 0.673), (0.327, 0.327, 0.327)),
+            ToTensorV2(),
+        ])
+
+    def __call__(self, inp: np.ndarray) -> Tensor:
+        return self.transform(image=inp)["image"]
+
+
+class FinetuneEvalTransforms:
+    def __init__(self, target_size: int = 224):
+        self.transform = A.Compose([
+            ToRGB(),
+            A.Resize(target_size + 32, target_size + 32),
+            A.CenterCrop(target_size, target_size),
+            A.Normalize((0.673, 0.673, 0.673), (0.327, 0.327, 0.327)),
+            ToTensorV2(),
+        ])
+
+    def __call__(self, inp: np.ndarray) -> Tensor:
+        return self.transform(image=inp)["image"]

@@ -1,4 +1,3 @@
-from argparse import ArgumentParser
 from pathlib import Path
 from typing import Any, List, Optional
 
@@ -14,46 +13,59 @@ from torchmetrics import Accuracy, AUROC, Recall, Specificity
 from .moco2_module import MoCoV2
 
 
+# class FocalLoss(nn.Module):
+#     def __init__(self, alpha: float = 0, gamma: float = 0,
+#                  size_average: bool = True):
+#         super().__init__()
+#         self.alpha = alpha
+#         self.gamma = gamma
+#         self.size_average = size_average
+#
+#     def forward(self, input: Tensor, target: Tensor):
+#         pass
+
+
 class SSLCOVIDNet(pl.LightningModule):
     def __init__(self,
-                 num_classes: int,
-                 val_pathology_list: List[str],
-                 pretrained_checkpoint: str,
-                 pos_weights: Optional = None,
-                 batch_size: int = 64,
+                 pretrained: str,
+                 num_classes: int = 3,
+                 pos_weights: Optional[List[float]] = None,
                  learning_rate: float = 1e-3,
                  use_lr_scheduler: bool = False,
+                 data_dir: str = "./",
+                 batch_size: int = 128,
                  num_workers: int = 4,
                  **kwargs):
         super().__init__()
-        assert num_classes == len(val_pathology_list)
-        assert Path(pretrained_checkpoint).expanduser().exists()
         self.save_hyperparameters()
-        moco_model = MoCoV2.load_from_checkpoint(pretrained_checkpoint)
-        self.base_encoder = moco_model.hparams.base_encoder
-        self.in_channels = moco_model.hparams.in_channels
-        self.backbone = moco_model.encoder_q
-        for param in self.backbone.parameters():
-            param.requires_grad = False
+        self.pathologies = ["normal", "pneumonia", "covid"]
+        backbone = MoCoV2.load_from_checkpoint(pretrained)
+        self.encoder = backbone.encoder_q
+        if backbone.hparams.use_mlp:
+            if hasattr(self.encoder, "fc"):  # ResNet models
+                dim_mlp = self.encoder.fc[-1].weight.shape[1]
+                self.encoder.fc = nn.Linear(dim_mlp, num_classes)
+            elif hasattr(self.encoder, "classifier"):  # Densenet models
+                dim_mlp = self.encoder.classifier[-1].weight.shape[1]
+                self.encoder.classifier = nn.Linear(dim_mlp, num_classes)
 
-        try:
-            self.last_channel = list(self.backbone.children())[-1].out_features
-        except AttributeError:
-            self.last_channel = list(self.backbone.children())[
-                -1].out.out_features
+        elif hasattr(self.encoder, "fc"):  # ResNet models
+            dim_mlp = self.encoder.fc.weight.shape[1]
+            self.encoder.fc = nn.Linear(dim_mlp, num_classes)
+        elif hasattr(self.encoder, "classifier"):  # Densenet models
+            dim_mlp = self.encoder.classifier.weight.shape[1]
+            self.encoder.classifier = nn.Linear(dim_mlp, num_classes)
 
-        self.classifier = nn.Sequential(
-            nn.Hardswish(inplace=True),
-            nn.Dropout(0.2, inplace=True),
-            nn.Linear(self.last_channel, num_classes)
-        )
-        self.num_classes = num_classes
-        self.batch_size = batch_size
-        self.learning_rate = learning_rate
+        for name, param in self.encoder.named_parameters():
+            if name not in ("fc.weight", "fc.bias",
+                            "classifier.weight", "classifier.bias"):
+                param.requires_grad = False
 
-        if pos_weights is None:
-            pos_weights = torch.ones(num_classes)
+        pos_weights = torch.tensor(pos_weights) if pos_weights \
+            else torch.ones(num_classes)
         self.register_buffer("pos_weights", pos_weights)
+        self.criterion = nn.CrossEntropyLoss(weight=self.pos_weights,
+                                             label_smoothing=0.15)
 
         self.train_acc = Accuracy(num_classes=num_classes,
                                   average="none")
@@ -62,26 +74,22 @@ class SSLCOVIDNet(pl.LightningModule):
         # self.train_specificity = Specificity(num_classes=num_classes,
         #                                      average="none")
 
-        self.val_acc = Accuracy(num_classes=num_classes,
-                                average="none")
-        self.val_sensitivity = Recall(num_classes=num_classes,
-                                      average="none")
+        self.val_acc = Accuracy(num_classes=num_classes, average="none")
+        self.val_sensitivity = Recall(num_classes=num_classes, average="none")
         self.val_specificity = Specificity(num_classes=num_classes,
                                            average="none")
-        self.val_auc = AUROC(num_classes=num_classes,
-                             average=None)
+        self.val_auc = AUROC(num_classes=num_classes, average=None)
 
     def forward(self, x: Tensor) -> Tensor:
-        embedding = self.backbone(x)
-        return self.classifier(embedding)
+        return self.encoder(x)
 
     def training_step(self, batch, batch_idx) -> Tensor:
         inputs, target = batch
         output = self(inputs)
-        loss = F.cross_entropy(output, target, weight=self.pos_weights)
+        loss = self.criterion(output, target)
         output_acc = self.train_acc(output, target)
 
-        for i, path in enumerate(self.hparams.val_pathology_list):
+        for i, path in enumerate(self.pathologies):
             self.log(f"train_acc_{path}", output_acc[i])
 
         self.log("train_loss", loss)
@@ -103,23 +111,23 @@ class SSLCOVIDNet(pl.LightningModule):
         val_sensitivity = self.val_sensitivity.compute()
         val_specificity = self.val_specificity.compute()
         val_auc = self.val_auc.compute()
-        for i, path in enumerate(self.hparams.val_pathology_list):
-            log = ({
+        val_auc_mean = torch.mean(val_auc)
+        for i, path in enumerate(self.pathologies):
+            log = {
                 f"val_acc/{path}": val_acc[i],
                 f"val_sensitivity/{path}": val_sensitivity[i],
                 f"val_specificity/{path}": val_specificity[i],
                 f"val_auc/{path}": val_auc[i],
-            })
+            }
             self.log_dict(log)
             self.print({k: v.item() for k, v in log.items()})
-        self.log("val_auc_mean", torch.mean(val_auc))
-        self.log("hp_metric", torch.mean(val_auc))
+        self.log_dict({
+            "hp_metric": val_auc_mean,
+            "val_auc_mean": val_auc_mean,
+        })
 
     def configure_optimizers(self):
-        optimizer = Novograd([
-            {"params": self.backbone.parameters(), "lr": 1e-5},
-            {"params": self.classifier.parameters()}
-        ], self.learning_rate)
+        optimizer = Novograd(self.parameters(), self.hparams.learning_rate)
         scheduler = optim.lr_scheduler.CosineAnnealingLR(
             optimizer, self.trainer.max_epochs,
         )
@@ -128,19 +136,3 @@ class SSLCOVIDNet(pl.LightningModule):
             return [optimizer], [scheduler]
         else:
             return optimizer
-
-    @staticmethod
-    def add_model_specific_args(parent_parser):
-        parser = ArgumentParser(parents=[parent_parser], add_help=False)
-        parser.add_argument("--data_dir")
-        parser.add_argument("--num_classes", type=int, default=3)
-        parser.add_argument("--val_pathology_list", nargs="+",
-                            default=["normal", "pneumonia", "covid"])
-        parser.add_argument("--pretrained_checkpoint", required=True)
-        parser.add_argument("--pos_weights", nargs="+", type=float)
-        parser.add_argument("--batch_size", type=int, default=64)
-        parser.add_argument("--learning_rate", type=float, default=1e-2)
-        parser.add_argument("--num_workers", type=int, default=4)
-        parser.add_argument("--use_lr_scheduler", action="store_true")
-
-        return parser

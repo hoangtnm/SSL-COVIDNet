@@ -22,6 +22,7 @@ model:
   use_mlp: true
   num_workers: 4
 data:
+  phase: pretrain
   sampling_ratio: 1.0
   random_sampling: false
   pin_memory: true

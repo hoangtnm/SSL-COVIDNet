@@ -1,0 +1,29 @@
+trainer:
+  gpus: 1
+  max_epochs: 100
+  precision: 32
+model:
+  pretrained: null
+  num_classes: 3
+  pos_weights: null
+  learning_rate: 0.001
+  use_lr_scheduler: false
+  data_dir: /home/Downloads/SSL_Dataset
+  batch_size: 128
+  num_workers: 8
+data:
+  phase: finetune
+  sampling_ratio: 1.0
+  random_sampling: true
+  pin_memory: true
+  drop_last: false
+best_loss_checkpoint:
+  filename: best_loss_{epoch}-{val_loss:.2f}-{val_auc_mean:.2f}
+  monitor: val_loss
+  mode: min
+best_auc_checkpoint:
+  filename: best_auc_{epoch}-{val_loss:.2f}-{val_auc_mean:.2f}
+  monitor: val_auc_mean
+  mode: max
+last_checkpoint:
+  filename: last_{epoch}-{val_loss:.2f}-{val_auc_mean:.2f}

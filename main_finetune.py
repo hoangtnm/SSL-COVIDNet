@@ -1,57 +1,32 @@
-import argparse
-import os
-
-import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.plugins import DDPPlugin
+from pytorch_lightning.utilities.cli import LightningCLI
 
 from datasets import SSLCOVIDxCTDataModule
 from models import SSLCOVIDNet
-from transforms import FineTuneTrainCTTransforms, FineTuneEvalCTTransforms
+
+
+class MyLightningCLI(LightningCLI):
+    def add_arguments_to_parser(self, parser):
+        parser.link_arguments("model.data_dir", "data.data_dir")
+        parser.link_arguments("model.batch_size", "data.batch_size")
+        parser.link_arguments("model.num_workers", "data.num_workers")
+        parser.add_lightning_class_args(ModelCheckpoint, "best_loss_checkpoint")
+        parser.add_lightning_class_args(ModelCheckpoint, "best_auc_checkpoint")
+        parser.add_lightning_class_args(ModelCheckpoint, "last_checkpoint")
+        parser.set_defaults({
+            "best_loss_checkpoint.monitor": "val_loss",
+            "best_loss_checkpoint.filename": "best_loss_{epoch}-{val_loss:.2f}-{val_auc_mean:.2f}",
+            "best_loss_checkpoint.mode": "min",
+            "best_auc_checkpoint.monitor": "val_auc_mean",
+            "best_auc_checkpoint.filename": "best_auc_{epoch}-{val_loss:.2f}-{val_auc_mean:.2f}",
+            "best_auc_checkpoint.mode": "max",
+            "last_checkpoint.filename": "last_{epoch}-{val_loss:.2f}-{val_auc_mean:.2f}",
+        })
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    # parser.add_argument("--early_stopping_patience", type=int, default=10)
-    parser = pl.Trainer.add_argparse_args(parser)
-    parser = SSLCOVIDxCTDataModule.add_argparse_args(parser)
-    parser = SSLCOVIDNet.add_model_specific_args(parser)
-    args = parser.parse_args()
-
-    model = SSLCOVIDNet(**args.__dict__, epochs=args.max_epochs)
-    datamodule = SSLCOVIDxCTDataModule.from_argparse_args(args)
-    datamodule.train_transforms = FineTuneTrainCTTransforms(
-        height=224, out_channels=model.in_channels,
-    )
-    datamodule.val_transforms = FineTuneEvalCTTransforms(
-        height=224, out_channels=model.in_channels,
-    )
-
-    checkpointing = ModelCheckpoint(
-        monitor="val_auc_mean",
-        filename=f"{model.base_encoder}_"
-                 "{epoch}-{val_auc_mean:.2f}",
-        save_top_k=1,
-        mode="max",
-    )
-
-    # early_stop_callback = EarlyStopping(
-    #     monitor="val_loss",
-    #     patience=args.early_stopping_patience,
-    #     mode="min"
-    # )
-    callbacks = [checkpointing]
-    plugins = DDPPlugin(
-        find_unused_parameters=False,
-    ) if args.gpus >= 2 else None
-    logger = TensorBoardLogger(save_dir=os.getcwd(),
-                               name="lightning_logs_finetune")
-    trainer = pl.Trainer.from_argparse_args(
-        args, logger=logger, callbacks=callbacks, plugins=plugins,
-    )
-    trainer.fit(model, datamodule=datamodule)
-    trainer.validate(datamodule=datamodule)
+    cli = MyLightningCLI(SSLCOVIDNet, SSLCOVIDxCTDataModule,
+                         save_config_overwrite=True)
 
 
 if __name__ == '__main__':

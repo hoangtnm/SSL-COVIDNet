@@ -7,7 +7,8 @@ import pytorch_lightning as pl
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 
-from transforms.albumentations import MocoTrainTransforms, MocoEvalTransforms
+from transforms.albumentations import MocoTrainTransforms, MocoEvalTransforms, \
+    FinetuneTrainTransforms, FinetuneEvalTransforms
 
 
 # from transforms.albumentations import MocoTrainCTTransforms, \
@@ -69,6 +70,7 @@ class UnlabeledCOVIDxCT(Dataset):
 class SSLCOVIDxCTDataModule(pl.LightningDataModule):
     def __init__(self,
                  data_dir: str,
+                 phase: str,
                  num_workers: int = 4,
                  batch_size: int = 32,
                  sampling_ratio: float = 1.0,
@@ -78,7 +80,9 @@ class SSLCOVIDxCTDataModule(pl.LightningDataModule):
                  *args: Any,
                  **kwargs: Any):
         super().__init__(*args, **kwargs)
+        assert phase in {"pretrain", "finetune"}
         self.data_dir = data_dir
+        self.phase = phase
         self.num_workers = num_workers
         self.batch_size = batch_size
         self.sampling_ratio = sampling_ratio
@@ -89,9 +93,6 @@ class SSLCOVIDxCTDataModule(pl.LightningDataModule):
     @property
     def num_classes(self) -> int:
         return 3
-
-    def prepare_data(self):
-        pass
 
     def setup(self, stage: Optional[str] = None):
         if stage == "fit" or stage is None:
@@ -105,9 +106,8 @@ class SSLCOVIDxCTDataModule(pl.LightningDataModule):
                 self.data_dir, split="val", transform=val_transforms
             )
 
-        if stage == "test":
-            test_transforms = self._default_transforms() \
-                if self.test_transforms is None else self.test_transforms
+        if stage == "test" or stage is None:
+            test_transforms = self.test_transforms()
             self.covidxct_test = UnlabeledCOVIDxCT(
                 self.data_dir, split="test", transform=test_transforms
             )
@@ -121,7 +121,7 @@ class SSLCOVIDxCTDataModule(pl.LightningDataModule):
         return DataLoader(
             self.covidxct_train,
             batch_size=self.batch_size,
-            shuffle=True,
+            shuffle=not self.random_sampling,
             sampler=sampler,
             num_workers=self.num_workers,
             drop_last=self.drop_last,
@@ -147,10 +147,16 @@ class SSLCOVIDxCTDataModule(pl.LightningDataModule):
         )
 
     def _moco_train_transforms(self) -> Callable:
-        return MocoTrainTransforms(224)
+        if self.phase == "pretrain":
+            return MocoTrainTransforms(224)
+        else:
+            return FinetuneTrainTransforms(224)
 
     def _moco_val_transforms(self) -> Callable:
-        return MocoEvalTransforms(224)
+        if self.phase == "pretrain":
+            return MocoEvalTransforms(224)
+        else:
+            return FinetuneEvalTransforms(224)
 
     @classmethod
     def add_argparse_args(cls, parent_parser, **kwargs):
