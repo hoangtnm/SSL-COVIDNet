@@ -7,13 +7,8 @@ import pytorch_lightning as pl
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 
-from transforms.albumentations import MocoTrainTransforms, MocoEvalTransforms, \
+from transforms import MocoTrainTransforms, MocoEvalTransforms, \
     FinetuneTrainTransforms, FinetuneEvalTransforms
-
-
-# from transforms.albumentations import MocoTrainCTTransforms, \
-#     MocoEvalCTTransforms
-# from transforms.monai import MocoTrainCTTransforms, MocoEvalCTTransforms
 
 
 class UnlabeledCOVIDxCT(Dataset):
