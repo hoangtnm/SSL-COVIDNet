@@ -111,6 +111,7 @@ class MocoTrainTransforms:
             A.ColorJitter(0.4, 0.4, 0.4, 0.1, p=0.8),
             A.ToGray(p=0.2),
             A.HorizontalFlip(),
+            A.VerticalFlip(),
             GaussianBlur(),
             A.Normalize((0.673, 0.673, 0.673), (0.327, 0.327, 0.327)),
             ToTensorV2(),

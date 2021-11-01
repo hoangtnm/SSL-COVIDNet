@@ -34,6 +34,7 @@ class MocoTrainTransforms:
             T.RandomGrayscale(p=0.2),
             T.RandomApply([GaussianBlur([0.1, 2.0])]),
             T.RandomHorizontalFlip(),
+            T.RandomVerticalFlip(),
             T.ToTensor(),
             T.Normalize((0.673, 0.673, 0.673), (0.327, 0.327, 0.327)),
         ])
