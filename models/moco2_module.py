@@ -244,6 +244,7 @@ class MoCoV2(pl.LightningModule):
 
         log = {"val_loss": val_loss, "val_acc1": val_acc1, "val_acc5": val_acc5}
         self.log_dict(log)
+        self.log("hp_metric", val_acc1)
 
     def configure_optimizers(self):
         optimizer = optim.SGD(
