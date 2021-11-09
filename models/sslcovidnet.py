@@ -30,6 +30,7 @@ class SSLCOVIDNet(pl.LightningModule):
                  pretrained: str,
                  num_classes: int = 3,
                  pos_weights: Optional[List[float]] = None,
+                 label_smoothing: float = 0.0,
                  learning_rate: float = 1e-3,
                  use_lr_scheduler: bool = False,
                  data_dir: str = "./",
@@ -44,28 +45,29 @@ class SSLCOVIDNet(pl.LightningModule):
         if backbone.hparams.use_mlp:
             if hasattr(self.encoder, "fc"):  # ResNet models
                 dim_mlp = self.encoder.fc[-1].weight.shape[1]
-                self.encoder.fc = nn.Linear(dim_mlp, num_classes)
+                self.encoder.fc = self._init_classifier(dim_mlp, num_classes)
             elif hasattr(self.encoder, "classifier"):  # Densenet models
                 dim_mlp = self.encoder.classifier[-1].weight.shape[1]
-                self.encoder.classifier = nn.Linear(dim_mlp, num_classes)
+                self.encoder.classifier = self._init_classifier(dim_mlp,
+                                                                num_classes)
 
         elif hasattr(self.encoder, "fc"):  # ResNet models
             dim_mlp = self.encoder.fc.weight.shape[1]
-            self.encoder.fc = nn.Linear(dim_mlp, num_classes)
+            self.encoder.fc = self._init_classifier(dim_mlp, num_classes)
         elif hasattr(self.encoder, "classifier"):  # Densenet models
             dim_mlp = self.encoder.classifier.weight.shape[1]
-            self.encoder.classifier = nn.Linear(dim_mlp, num_classes)
+            self.encoder.classifier = self._init_classifier(dim_mlp,
+                                                            num_classes)
 
         for name, param in self.encoder.named_parameters():
-            if name not in ("fc.weight", "fc.bias",
-                            "classifier.weight", "classifier.bias"):
+            if not name.startswith(("fc", "classifier")):
                 param.requires_grad = False
 
         pos_weights = torch.tensor(pos_weights) if pos_weights \
             else torch.ones(num_classes)
         self.register_buffer("pos_weights", pos_weights)
         self.criterion = nn.CrossEntropyLoss(weight=self.pos_weights,
-                                             label_smoothing=0.15)
+                                             label_smoothing=label_smoothing)
 
         self.train_acc = Accuracy(num_classes=num_classes,
                                   average="none")
@@ -79,6 +81,17 @@ class SSLCOVIDNet(pl.LightningModule):
         self.val_specificity = Specificity(num_classes=num_classes,
                                            average="none")
         self.val_auc = AUROC(num_classes=num_classes, average=None)
+
+    def _init_classifier(self, in_features, out_features):
+        return nn.Sequential(
+            nn.Linear(in_features, in_features),
+            nn.Hardswish(inplace=True),
+            nn.Dropout(p=0.2, inplace=True),
+            nn.Linear(in_features, in_features),
+            nn.Hardswish(inplace=True),
+            nn.Dropout(p=0.2, inplace=True),
+            nn.Linear(in_features, out_features),
+        )
 
     def forward(self, x: Tensor) -> Tensor:
         return self.encoder(x)
@@ -120,7 +133,6 @@ class SSLCOVIDNet(pl.LightningModule):
                 f"val_auc/{path}": val_auc[i],
             }
             self.log_dict(log)
-            self.print({k: v.item() for k, v in log.items()})
         self.log_dict({
             "hp_metric": val_auc_mean,
             "val_auc_mean": val_auc_mean,

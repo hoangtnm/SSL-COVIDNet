@@ -143,8 +143,9 @@ class FinetuneTrainTransforms:
     def __init__(self, target_size: int = 224):
         self.transform = A.Compose([
             ToRGB(),
-            A.RandomResizedCrop(target_size, target_size, scale=(0.2, 1.0)),
+            A.RandomResizedCrop(target_size, target_size, scale=(0.5, 1.0)),
             A.HorizontalFlip(),
+            A.VerticalFlip(),
             A.Normalize((0.673, 0.673, 0.673), (0.327, 0.327, 0.327)),
             ToTensorV2(),
         ])

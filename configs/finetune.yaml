@@ -1,11 +1,12 @@
 trainer:
   gpus: 1
-  max_epochs: 100
+  max_epochs: 200
   precision: 32
 model:
   pretrained: null
   num_classes: 3
   pos_weights: null
+  label_smoothing: 0.0
   learning_rate: 0.001
   use_lr_scheduler: false
   data_dir: /home/Downloads/SSL_Dataset
